@@ -1,3 +1,4 @@
+import subprocess
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import GradientBoostingClassifier
@@ -6,20 +7,33 @@ from sklearn.metrics import roc_auc_score
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 import joblib
 import warnings
-
+import sys
+from datetime import datetime
 warnings.filterwarnings('ignore')
 
 
 class DriverPriceOptimizer:
-    def __init__(self):
+    def __init__(self, log_file=None):
         self.model = None
         self.scaler = StandardScaler()
         self.label_encoders = {}
         self.feature_importance = None
+        self.log_file = log_file
+
+    def log(self, message):
+        """Запись сообщения в лог-файл и вывод в консоль"""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_message = f"[{timestamp}] {message}"
+        
+        print(log_message)
+        
+        if self.log_file:
+            with open(self.log_file, 'a', encoding='utf-8') as f:
+                f.write(log_message + '\n')
 
     def load_data(self, file_path):
         """Загрузка данных из CSV файла"""
-        print("📊 Загрузка данных...")
+        self.log("📊 Загрузка данных...")
         self.df = pd.read_csv(file_path)
 
         # Предобработка данных
@@ -27,14 +41,14 @@ class DriverPriceOptimizer:
         self.df['order_timestamp'] = pd.to_datetime(self.df['order_timestamp'])
         self.df['tender_timestamp'] = pd.to_datetime(self.df['tender_timestamp'])
 
-        print(f"✅ Загружено {len(self.df)} записей")
-        print(f"📈 Процент принятых заказов: {self.df['is_done'].mean():.1%}")
+        self.log(f"✅ Загружено {len(self.df)} записей")
+        self.log(f"📈 Процент принятых заказов: {self.df['is_done'].mean():.1%}")
 
         return self.df
 
     def create_features(self):
         """Создание признаков для ML модели"""
-        print("🔧 Создание признаков...")
+        self.log("🔧 Создание признаков...")
 
         # Временные признаки
         self.df['order_hour'] = self.df['order_timestamp'].dt.hour
@@ -61,7 +75,7 @@ class DriverPriceOptimizer:
                 self.df[f'{col}_encoded'] = le.fit_transform(self.df[col].fillna('unknown'))
                 self.label_encoders[col] = le
 
-        print("✅ Признаки созданы")
+        self.log("✅ Признаки созданы")
         return self.df
 
     def prepare_model_data(self):
@@ -80,13 +94,13 @@ class DriverPriceOptimizer:
 
         # Фильтруем только существующие колонки
         self.feature_cols = [col for col in feature_cols if col in self.df.columns]
-        print(f"✅ Используется {len(self.feature_cols)} признаков")
+        self.log(f"✅ Используется {len(self.feature_cols)} признаков")
 
         return self.feature_cols
 
     def train_model(self, test_size=0.2):
         """Обучение ML модели"""
-        print("🤖 Обучение модели...")
+        self.log("🤖 Обучение модели...")
 
         X = self.df[self.feature_cols]
         y = self.df['is_done']
@@ -114,13 +128,20 @@ class DriverPriceOptimizer:
         roc_auc = roc_auc_score(y_test, y_pred_proba)
         accuracy = np.mean(y_pred == y_test)
 
-        print("📊 Модель обучена успешно!")
-        print(f"🎯 Точность предсказаний: {accuracy:.1%}")
+        self.log("📊 Модель обучена успешно!")
+        self.log(f"🎯 Точность предсказаний: {accuracy:.1%}")
+        self.log(f"📈 ROC-AUC: {roc_auc:.3f}")
 
         self.feature_importance = pd.DataFrame({
             'feature': self.feature_cols,
             'importance': self.model.feature_importances_
         }).sort_values('importance', ascending=False)
+
+        # Логируем важность признаков
+        self.log("\n🔍 ВАЖНОСТЬ ПРИЗНАКОВ:")
+        self.log("-" * 40)
+        for _, row in self.feature_importance.head(10).iterrows():
+            self.log(f"{row['feature']}: {row['importance']:.4f}")
 
         return self.model
 
@@ -237,7 +258,7 @@ class DriverPriceOptimizer:
         }
 
         joblib.dump(model_data, filepath)
-        print(f"💾 Модель сохранена: {filepath}")
+        self.log(f"💾 Модель сохранена: {filepath}")
 
     def load_model(self, filepath):
         """Загрузка модели"""
@@ -247,69 +268,79 @@ class DriverPriceOptimizer:
         self.label_encoders = model_data['label_encoders']
         self.feature_cols = model_data['feature_cols']
         self.feature_importance = model_data['feature_importance']
-        print(f"📂 Модель загружена: {filepath}")
+        self.log(f"📂 Модель загружена: {filepath}")
 
 
-def run_complete_pipeline(csv_file_path):
+def run_complete_pipeline(csv_file_path, log_file_path):
     """Запуск полного пайплайна"""
-    print("🚀 ЗАПУСК СИСТЕМЫ ОПТИМИЗАЦИИ ЦЕН")
-    print("=" * 45)
+    
+    # Создаем лог-файл и записываем заголовок
+    with open(log_file_path, 'w', encoding='utf-8') as f:
+        f.write("=" * 50 + "\n")
+        f.write("🚀 СИСТЕМА ОПТИМИЗАЦИИ ЦЕН ДЛЯ ВОДИТЕЛЕЙ\n")
+        f.write("=" * 50 + "\n")
+        f.write(f"Дата запуска: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"Файл с данными: {csv_file_path}\n")
+        f.write("=" * 50 + "\n\n")
 
-    optimizer = DriverPriceOptimizer()
+    optimizer = DriverPriceOptimizer(log_file=log_file_path)
 
     try:
         # Обучение модели
+        optimizer.log("🚀 ЗАПУСК СИСТЕМЫ ОПТИМИЗАЦИИ ЦЕН")
+        optimizer.log("=" * 45)
+
         optimizer.load_data(csv_file_path)
         optimizer.create_features()
         optimizer.prepare_model_data()
         optimizer.train_model()
 
-        print("\n" + "🎯 РЕКОМЕНДАЦИИ ДЛЯ ВОДИТЕЛЕЙ")
-        print("=" * 45)
+        optimizer.log("\n" + "🎯 РЕКОМЕНДАЦИИ ДЛЯ ВОДИТЕЛЕЙ")
+        optimizer.log("=" * 45)
 
         # Тестирование на нескольких заказах
-        sample_orders = optimizer.df.sample(2)
+        sample_orders = optimizer.df.sample(min(3, len(optimizer.df)))
 
         for i, (idx, order) in enumerate(sample_orders.iterrows(), 1):
-            print(f"\n📦 ЗАКАЗ #{i}")
-            print("─" * 30)
-            print(f"💰 Цена пассажира: {order['price_start_local']} ₽")
-            print(f"⭐ Рейтинг водителя: {order['driver_rating']}")
-            print(f"🕐 Время: {order['order_hour']}:00")
+            optimizer.log(f"\n📦 ЗАКАЗ #{i}")
+            optimizer.log("─" * 30)
+            optimizer.log(f"💰 Цена пассажира: {order['price_start_local']} ₽")
+            optimizer.log(f"⭐ Рейтинг водителя: {order['driver_rating']}")
+            optimizer.log(f"🕐 Время: {order['order_hour']}:00")
 
             # Получаем рекомендации
             order_data = optimizer.df.loc[idx:idx][optimizer.feature_cols].copy()
             recommendations = optimizer.get_price_recommendations(order_data, order['price_start_local'])
 
-            print("\n🎪 СТРАТЕГИИ ЦЕНООБРАЗОВАНИЯ:")
-            print("─" * 45)
+            optimizer.log("\n🎪 СТРАТЕГИИ ЦЕНООБРАЗОВАНИЯ:")
+            optimizer.log("─" * 45)
 
             # Консервативная стратегия
             cons = recommendations['conservative']
-            print(f"\n🟢 КОНСЕРВАТИВНАЯ")
-            print(f"   💰 Рекомендуемая цена: {cons['price']} ₽")
-            print(f"   📈 Вероятность принятия: {cons['probability']:.1%}")
-            print(f"   🎯 Ожидаемый доход: {cons['expected_income']:.0f} ₽")
-            print(f"   📊 Надбавка: +{cons['markup']} ₽ (+{cons['markup_percent']:.0f}%)")
+            optimizer.log(f"\n🟢 КОНСЕРВАТИВНАЯ")
+            optimizer.log(f"   💰 Рекомендуемая цена: {cons['price']} ₽")
+            optimizer.log(f"   📈 Вероятность принятия: {cons['probability']:.1%}")
+            optimizer.log(f"   🎯 Ожидаемый доход: {cons['expected_income']:.0f} ₽")
+            optimizer.log(f"   📊 Надбавка: +{cons['markup']} ₽ (+{cons['markup_percent']:.0f}%)")
 
             # Сбалансированная стратегия
             bal = recommendations['balanced']
-            print(f"\n🟡 СБАЛАНСИРОВАННАЯ")
-            print(f"   💰 Рекомендуемая цена: {bal['price']} ₽")
-            print(f"   📈 Вероятность принятия: {bal['probability']:.1%}")
-            print(f"   🎯 Ожидаемый доход: {bal['expected_income']:.0f} ₽")
-            print(f"   📊 Надбавка: +{bal['markup']} ₽ (+{bal['markup_percent']:.0f}%)")
+            optimizer.log(f"\n🟡 СБАЛАНСИРОВАННАЯ")
+            optimizer.log(f"   💰 Рекомендуемая цена: {bal['price']} ₽")
+            optimizer.log(f"   📈 Вероятность принятия: {bal['probability']:.1%}")
+            optimizer.log(f"   🎯 Ожидаемый доход: {bal['expected_income']:.0f} ₽")
+            optimizer.log(f"   📊 Надбавка: +{bal['markup']} ₽ (+{bal['markup_percent']:.0f}%)")
 
             # Агрессивная стратегия
             agg = recommendations['aggressive']
-            print(f"\n🔴 АГРЕССИВНАЯ")
-            print(f"   💰 Рекомендуемая цена: {agg['price']} ₽")
-            print(f"   📈 Вероятность принятия: {agg['probability']:.1%}")
-            print(f"   🎯 Ожидаемый доход: {agg['expected_income']:.0f} ₽")
-            print(f"   📊 Надбавка: +{agg['markup']} ₽ (+{agg['markup_percent']:.0f}%)")
+            optimizer.log(f"\n🔴 АГРЕССИВНАЯ")
+            optimizer.log(f"   💰 Рекомендуемая цена: {agg['price']} ₽")
+            optimizer.log(f"   📈 Вероятность принятия: {agg['probability']:.1%}")
+            optimizer.log(f"   🎯 Ожидаемый доход: {agg['expected_income']:.0f} ₽")
+            optimizer.log(f"   📊 Надбавка: +{agg['markup']} ₽ (+{agg['markup_percent']:.0f}%)")
 
-            print("\n" + "💡 РЕКОМЕНДАЦИЯ:")
-            print("─" * 20)
+            optimizer.log("\n" + "💡 РЕКОМЕНДАЦИЯ:")
+            optimizer.log("─" * 20)
             best_strategy = max(recommendations.items(), key=lambda x: x[1]['expected_income'])
             strategy_name = {
                 'conservative': 'консервативную',
@@ -317,25 +348,28 @@ def run_complete_pipeline(csv_file_path):
                 'aggressive': 'агрессивную'
             }[best_strategy[0]]
 
-            print(f"Выберите {strategy_name} стратегию:")
-            print(f"💰 Установите цену: {best_strategy[1]['price']} ₽")
-            print(f"🎯 Ожидаемый доход: {best_strategy[1]['expected_income']:.0f} ₽")
+            optimizer.log(f"Выберите {strategy_name} стратегию:")
+            optimizer.log(f"💰 Установите цену: {best_strategy[1]['price']} ₽")
+            optimizer.log(f"🎯 Ожидаемый доход: {best_strategy[1]['expected_income']:.0f} ₽")
 
         # Сохранение модели
         optimizer.save_model()
 
-        print("\n" + "=" * 45)
-        print("✅ СИСТЕМА ГОТОВА К РАБОТЕ!")
-        print("=" * 45)
+        optimizer.log("\n" + "=" * 45)
+        optimizer.log("✅ СИСТЕМА ГОТОВА К РАБОТЕ!")
+        optimizer.log("=" * 45)
+        
+        optimizer.log(f"\n📁 Все результаты сохранены в файл: {log_file_path}")
 
         return optimizer
 
     except Exception as e:
-        print(f"❌ Ошибка: {e}")
+        optimizer.log(f"❌ Ошибка: {e}")
         return None
-
 
 # ЗАПУСК ПРОГРАММЫ
 if __name__ == "__main__":
     CSV_FILE_PATH = "train.csv"
-    optimizer = run_complete_pipeline(CSV_FILE_PATH)
+    LOG_FILE_PATH = f"price_optimization_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"    
+    print(f"📝 Логирование будет сохранено в файл: {LOG_FILE_PATH}")    
+    optimizer = run_complete_pipeline(CSV_FILE_PATH, LOG_FILE_PATH)
