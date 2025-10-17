@@ -31,7 +31,7 @@
 ## Установка и запуск
 ### Требования
 ```bash
-pip install pandas numpy matplotlib seaborn scikit-learn joblib
+pip install -r requirements.txt
 ```
 
 ### Запуск полного пайплайна
