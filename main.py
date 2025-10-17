@@ -337,5 +337,5 @@ def run_complete_pipeline(csv_file_path):
 
 # ЗАПУСК ПРОГРАММЫ
 if __name__ == "__main__":
-    CSV_FILE_PATH = "C:/Users/tivony/PycharmProjects/Hacaton/train.csv"
+    CSV_FILE_PATH = "train.csv"
     optimizer = run_complete_pipeline(CSV_FILE_PATH)
