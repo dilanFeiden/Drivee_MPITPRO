@@ -1,0 +1,76 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.env
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# PyCharm
+*.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data
+data/raw/
+data/external/
+data/processed/
+!data/raw/.gitkeep
+!data/external/.gitkeep
+!data/processed/.gitkeep
+
+# Models
+models/
+!models/.gitkeep
+
+# Reports
+reports/figures/
+!reports/figures/.gitkeep
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+
+# Predictions (если не требуется коммитить финальный predictions.csv)
+# predictions.csv
+
+# Cache
+.cache/
